@@ -1,0 +1,7 @@
+streamlit
+plotly
+pandas
+requests
+python-dotenv
+mysql-connector-python
+schedule
