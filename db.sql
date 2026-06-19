@@ -1,7 +1,7 @@
 create database  weather_db;
     use weather_db;
 
-CREATE TABLE weather IF NOT EXISTS  (
+CREATE TABLE  IF NOT EXISTS weather (
     id INT AUTO_INCREMENT PRIMARY KEY,
     city VARCHAR(50) NOT NULL,
     temperature FLOAT NOT NULL,
