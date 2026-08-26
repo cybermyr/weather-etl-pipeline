@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 import requests
 from dotenv import load_dotenv
@@ -10,18 +10,10 @@ logger = logging.getLogger(__name__)
 
 API_KEY = os.getenv("API_KEY")
 BASE_URL = "http://api.weatherapi.com/v1/current.json"
-REQUEST_TIMEOUT = 10  # secondes
-
+REQUEST_TIMEOUT = 10  
 
 def get_weather(city):
-    """Récupère la météo actuelle d'une ville via WeatherAPI.
-
-    Args:
-        city (str): nom de la ville à interroger.
-
-    Returns:
-        dict | None: le JSON brut de l'API si succès, None en cas d'échec.
-    """
+  
     if not API_KEY:
         logger.error("API_KEY manquante : vérifie ton fichier .env")
         return None

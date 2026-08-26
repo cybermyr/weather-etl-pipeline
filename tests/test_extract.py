@@ -1,13 +1,11 @@
+from unittest.mock import MagicMock, patch
 
 import requests
-import pytest
-from unittest.mock import patch, MagicMock
 
 import extract
 
 
 def _fake_response(json_data, status_code=200):
-    """Construit un mock de requests.Response."""
     resp = MagicMock()
     resp.status_code = status_code
     resp.json.return_value = json_data
@@ -89,7 +87,7 @@ class TestGetWeatherErrors:
         assert result is None
 
     def test_one_city_failure_does_not_raise(self, monkeypatch):
-        """get_weather ne doit jamais lever d'exception vers l'appelant."""
+        
         monkeypatch.setattr(extract, "API_KEY", "fake_key")
         with patch.object(
             extract.requests,
@@ -111,7 +109,9 @@ class TestGetWeatherLogging:
     def test_logs_info_on_success(self, monkeypatch, caplog):
         monkeypatch.setattr(extract, "API_KEY", "fake_key")
         payload = {"location": {"name": "Sydney"}, "current": {}}
-        with patch.object(extract.requests, "get", return_value=_fake_response(payload)):
-            with caplog.at_level("INFO"):
-                extract.get_weather("Sydney")
+        with (
+            patch.object(extract.requests, "get", return_value=_fake_response(payload)),
+            caplog.at_level("INFO"),
+        ):
+            extract.get_weather("Sydney")
         assert any("Sydney" in record.message for record in caplog.records)

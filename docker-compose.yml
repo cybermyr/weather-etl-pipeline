@@ -1,6 +1,6 @@
 services:
 
-  # MySQL — stocke les données métier (les mesures météo)
+  
   mysql:
     image: mysql:8.0
     restart: unless-stopped
@@ -8,7 +8,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
     ports:
-      - "3307:3306"        # ← changé : 3307 côté Windows, 3306 dans le conteneur
+      - "3307:3306"        
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db.sql:/docker-entrypoint-initdb.d/db.sql
@@ -18,7 +18,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # Postgres — base de métadonnées INTERNE à Airflow (séparée de weather_db)
   airflow-db:
     image: postgres:15
     restart: unless-stopped
@@ -34,7 +33,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # Conteneur "à usage unique" : initialise Airflow (tables + user admin) puis s'arrête
+  
   airflow-init:
     image: apache/airflow:2.9.3
     depends_on:
@@ -51,7 +50,7 @@ services:
       airflow users create --username admin --password admin
       --firstname Myriam --lastname ETL --role Admin --email admin@example.com"
 
-  # Interface web Airflow (http://localhost:8080)
+
   airflow-webserver:
     image: apache/airflow:2.9.3
     restart: unless-stopped
@@ -78,7 +77,7 @@ services:
       bash -c "pip install --no-cache-dir -r /opt/airflow/project/requirements.txt &&
       airflow webserver"
 
-  # Déclenche les DAGs selon leur planification (le "chef d'orchestre")
+ 
   airflow-scheduler:
     image: apache/airflow:2.9.3
     restart: unless-stopped
@@ -103,7 +102,7 @@ services:
       bash -c "pip install --no-cache-dir -r /opt/airflow/project/requirements.txt &&
       airflow scheduler"
 
-  # Dashboard Streamlit — inchangé
+ 
   dashboard:
     build: .
     restart: unless-stopped

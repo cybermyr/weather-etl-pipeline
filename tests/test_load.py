@@ -1,11 +1,10 @@
+from unittest.mock import MagicMock, patch
 
+import mysql.connector
 import pandas as pd
 import pytest
-import mysql.connector
-from unittest.mock import patch, MagicMock
 
 import db
-
 
 VALID_DATA = {
     "city": "Tunis",
@@ -43,9 +42,11 @@ class TestGetConnection:
         mock_conn = MagicMock()
         mock_conn.is_connected.return_value = True
 
-        with patch.object(db.mysql.connector, "connect", return_value=mock_conn):
-            with db.get_connection() as conn:
-                assert conn is mock_conn
+        with (
+            patch.object(db.mysql.connector, "connect", return_value=mock_conn),
+            db.get_connection() as conn,
+        ):
+            assert conn is mock_conn
 
         mock_conn.close.assert_called_once()
 
@@ -53,10 +54,12 @@ class TestGetConnection:
         mock_conn = MagicMock()
         mock_conn.is_connected.return_value = True
 
-        with patch.object(db.mysql.connector, "connect", return_value=mock_conn):
-            with pytest.raises(ValueError):
-                with db.get_connection() as conn:
-                    raise ValueError("erreur pendant l'utilisation de la connexion")
+        with (
+            patch.object(db.mysql.connector, "connect", return_value=mock_conn),
+            pytest.raises(ValueError),
+            db.get_connection(),
+        ):
+            raise ValueError("erreur pendant l'utilisation de la connexion")
 
         mock_conn.close.assert_called_once()
 
@@ -65,23 +68,16 @@ class TestGetConnection:
             db.mysql.connector,
             "connect",
             side_effect=mysql.connector.Error("connexion refusée"),
-        ):
-            with pytest.raises(mysql.connector.Error):
-                with db.get_connection():
-                    pass
+        ), pytest.raises(mysql.connector.Error), db.get_connection():
+            pass
 
     def test_does_not_close_if_never_connected(self):
-        """Si connect() lève avant d'assigner conn, close() ne doit pas
-        être appelé sur un objet inexistant (pas de crash secondaire)."""
         with patch.object(
             db.mysql.connector,
             "connect",
             side_effect=mysql.connector.Error("boom"),
-        ):
-            with pytest.raises(mysql.connector.Error):
-                with db.get_connection():
-                    pass
-        # Le test réussit simplement si aucune exception secondaire n'est levée.
+        ), pytest.raises(mysql.connector.Error), db.get_connection():
+            pass
 
 
 class TestSaveToDb:
@@ -145,9 +141,11 @@ class TestGetAllData:
             [{"city": "Tunis", "temperature": 30.0, "humidity": 40, "wind_speed": 10.0}]
         )
 
-        with patch.object(db.mysql.connector, "connect", return_value=mock_conn):
-            with patch.object(db.pd, "read_sql", return_value=expected_df):
-                result = db.get_all_data()
+        with (
+            patch.object(db.mysql.connector, "connect", return_value=mock_conn),
+            patch.object(db.pd, "read_sql", return_value=expected_df),
+        ):
+            result = db.get_all_data()
 
         pd.testing.assert_frame_equal(result, expected_df)
 
@@ -166,13 +164,15 @@ class TestGetAllData:
         mock_conn = MagicMock()
         mock_conn.is_connected.return_value = True
 
-        with patch.object(db.mysql.connector, "connect", return_value=mock_conn):
-            with patch.object(
+        with (
+            patch.object(db.mysql.connector, "connect", return_value=mock_conn),
+            patch.object(
                 db.pd,
                 "read_sql",
                 side_effect=pd.errors.DatabaseError("requête invalide"),
-            ):
-                result = db.get_all_data()
+            ),
+        ):
+            result = db.get_all_data()
 
         assert isinstance(result, pd.DataFrame)
         assert result.empty

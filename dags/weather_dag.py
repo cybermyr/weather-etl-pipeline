@@ -1,13 +1,5 @@
-"""
-weather_dag.py
 
-DAG Airflow qui orchestre le pipeline ETL météo :
-extract (API) -> transform (nettoyage) -> load (MySQL)
-
-Remplace scheduler.py : Airflow gère maintenant la planification,
-les retries par tâche, et l'historique des exécutions via son UI.
-"""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -21,19 +13,15 @@ CITIES = [
     "Tokyo", "Sydney", "Moscow", "Beijing", "Rio de Janeiro",
 ]
 
-# Paramètres par défaut appliqués à toutes les tâches du DAG
+
 default_args = {
     "owner": "myriam",
-    "retries": 2,                       # si une tâche échoue, réessaie 2 fois
-    "retry_delay": timedelta(minutes=5),  # attend 5 min entre chaque essai
+    "retries": 2,                       
+    "retry_delay": timedelta(minutes=5),  
 }
 
 
 def extract_all(**context):
-    """Récupère les données brutes pour toutes les villes.
-
-    Transmet le résultat à la tâche suivante via XCom (ti = task instance).
-    """
     raw_results = {}
     for city in CITIES:
         raw_results[city] = get_weather(city)
@@ -41,7 +29,7 @@ def extract_all(**context):
 
 
 def transform_all(**context):
-    """Récupère les données brutes de la tâche précédente et les nettoie."""
+    
     raw_results = context["ti"].xcom_pull(
         key="raw_data", task_ids="extract"
     )
@@ -52,13 +40,13 @@ def transform_all(**context):
 
 
 def load_all(**context):
-    """Récupère les données nettoyées et les insère en base."""
+    
     cleaned_results = context["ti"].xcom_pull(
         key="cleaned_data", task_ids="transform"
     )
     success_count = 0
     failure_count = 0
-    for city, data in cleaned_results.items():
+    for data in cleaned_results.values():
         if save_to_db(data):
             success_count += 1
         else:
@@ -70,9 +58,9 @@ with DAG(
     dag_id="weather_etl_pipeline",
     description="Pipeline ETL météo : extract -> transform -> load",
     default_args=default_args,
-    schedule_interval="*/45 * * * *",   # toutes les 45 minutes, syntaxe cron
-    start_date=datetime(2026, 1, 1),
-    catchup=False,                       # ne pas rattraper les runs passés
+    schedule_interval="*/45 * * * *",   
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    catchup=False,                     
     tags=["weather", "etl"],
 ) as dag:
 
@@ -91,5 +79,5 @@ with DAG(
         python_callable=load_all,
     )
 
-    # Définit l'ordre d'exécution : extract -> transform -> load
+
     extract_task >> transform_task >> load_task
