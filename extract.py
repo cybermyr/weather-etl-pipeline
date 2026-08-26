@@ -1,13 +1,45 @@
 import os
+import logging
+
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
-api_key = os.getenv("API_KEY")
+logger = logging.getLogger(__name__)
+
+API_KEY = os.getenv("API_KEY")
+BASE_URL = "http://api.weatherapi.com/v1/current.json"
+REQUEST_TIMEOUT = 10  # secondes
 
 
 def get_weather(city):
-    url =f"http://api.weatherapi.com/v1/current.json?key={api_key}&q={city}"
-    response = requests.get(url)
+    """Récupère la météo actuelle d'une ville via WeatherAPI.
+
+    Args:
+        city (str): nom de la ville à interroger.
+
+    Returns:
+        dict | None: le JSON brut de l'API si succès, None en cas d'échec.
+    """
+    if not API_KEY:
+        logger.error("API_KEY manquante : vérifie ton fichier .env")
+        return None
+
+    params = {"key": API_KEY, "q": city}
+
+    try:
+        response = requests.get(BASE_URL, params=params, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.exceptions.Timeout:
+        logger.error("Timeout lors de la requête pour la ville '%s'", city)
+        return None
+    except requests.exceptions.HTTPError as err:
+        logger.error("Erreur HTTP pour '%s' : %s", city, err)
+        return None
+    except requests.exceptions.RequestException as err:
+        logger.error("Erreur réseau pour '%s' : %s", city, err)
+        return None
+
+    logger.info("Données météo récupérées avec succès pour '%s'", city)
     return response.json()

@@ -1,0 +1,124 @@
+services:
+
+  # MySQL — stocke les données métier (les mesures météo)
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    ports:
+      - "3307:3306"        # ← changé : 3307 côté Windows, 3306 dans le conteneur
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db.sql:/docker-entrypoint-initdb.d/db.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Postgres — base de métadonnées INTERNE à Airflow (séparée de weather_db)
+  airflow-db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Conteneur "à usage unique" : initialise Airflow (tables + user admin) puis s'arrête
+  airflow-init:
+    image: apache/airflow:2.9.3
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - .:/opt/airflow/project
+    entrypoint: >
+      bash -c "airflow db migrate &&
+      airflow users create --username admin --password admin
+      --firstname Myriam --lastname ETL --role Admin --email admin@example.com"
+
+  # Interface web Airflow (http://localhost:8080)
+  airflow-webserver:
+    image: apache/airflow:2.9.3
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+      PYTHONPATH: /opt/airflow/project
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      API_KEY: ${API_KEY}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - .:/opt/airflow/project
+    ports:
+      - "8081:8080"
+    entrypoint: >
+      bash -c "pip install --no-cache-dir -r /opt/airflow/project/requirements.txt &&
+      airflow webserver"
+
+  # Déclenche les DAGs selon leur planification (le "chef d'orchestre")
+  airflow-scheduler:
+    image: apache/airflow:2.9.3
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db/airflow
+      PYTHONPATH: /opt/airflow/project
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      API_KEY: ${API_KEY}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - .:/opt/airflow/project
+    entrypoint: >
+      bash -c "pip install --no-cache-dir -r /opt/airflow/project/requirements.txt &&
+      airflow scheduler"
+
+  # Dashboard Streamlit — inchangé
+  dashboard:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    ports:
+      - "8501:8501"
+    command: streamlit run dashboard.py --server.address=0.0.0.0
+
+volumes:
+  mysql_data:
+  airflow_db_data:
