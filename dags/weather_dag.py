@@ -4,9 +4,9 @@ from datetime import datetime, timedelta, timezone
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
+from db import save_to_db
 from extract import get_weather
 from transform import transform_weather_data
-from db import save_to_db
 
 CITIES = [
     "Tunis", "Rome", "Paris", "London", "New York",
