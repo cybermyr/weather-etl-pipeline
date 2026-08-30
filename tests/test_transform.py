@@ -1,7 +1,7 @@
 import pytest
 
-from transform import transform_weather_data
 from models import WeatherReading
+from transform import transform_weather_data
 
 
 class TestTransformNoneInput:
